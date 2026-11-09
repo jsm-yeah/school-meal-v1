@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>급식 달력판</title>
+<style>
+  :root{
+    --bg:#f5f6f8;
+    --card:#ffffff;
+    --soft:#fafbfc;
+    --line:#e3e6ea;
+    --line-strong:#d2d7de;
+    --text:#2b2f36;
+    --muted:#7a828e;
+    --faint:#b3b9c2;
+    --sun:#d64545;
+    --sat:#2f6fd6;
+    --danger:#e02424;
+    --danger-bg:#fff2f2;
+    --danger-line:#f3b8b8;
+    --today:#fffaea;
+    --today-line:#f0d98a;
+    --accent:#3d4a5c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg)}
+  body{
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+    color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1200px;margin:0 auto;padding:24px 16px 48px}
+
+  /* ===== 상단 ===== */
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .brand{font-size:1.15rem;font-weight:700;color:var(--accent);letter-spacing:-.01em}
+  .brand small{display:block;font-size:.8rem;font-weight:400;color:var(--muted)}
+  .nav{display:flex;align-items:center;gap:8px}
+  .ym{font-size:1.45rem;font-weight:700;min-width:150px;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .btn{
+    appearance:none;border:1px solid var(--line-strong);background:var(--card);color:var(--text);
+    font:inherit;font-size:.9rem;padding:7px 14px;border-radius:8px;cursor:pointer;
+    transition:background .15s,border-color .15s;
+  }
+  .btn:hover{background:var(--soft);border-color:#c3c9d1}
+  .btn:focus-visible{outline:2px solid var(--sat);outline-offset:2px}
+  .btn.ghost{border-color:transparent;background:transparent;color:var(--muted);padding:4px 8px;font-size:.85rem}
+  .btn.ghost:hover{color:var(--text);background:var(--soft)}
+
+  /* ===== 알레르기 필터 ===== */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .panel-title{font-size:1rem;font-weight:700}
+  .panel-title .count{font-size:.85rem;font-weight:500;color:var(--muted);margin-left:6px}
+  .panel-title .count.on{color:var(--danger)}
+  .allergy-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+  .chip{
+    display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--line);
+    border-radius:8px;cursor:pointer;font-size:.92rem;user-select:none;background:var(--card);
+    transition:background .15s,border-color .15s,color .15s;
+  }
+  .chip:hover{border-color:var(--line-strong);background:var(--soft)}
+  .chip input{width:16px;height:16px;accent-color:var(--danger);cursor:pointer;flex:none}
+  .chip .no{color:var(--muted);font-size:.8rem;font-variant-numeric:tabular-nums;min-width:18px}
+  .chip.on{border-color:var(--danger-line);background:var(--danger-bg);color:var(--danger);font-weight:700}
+  .chip.on .no{color:var(--danger)}
+  .legend{margin-top:12px;font-size:.82rem;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .legend b{color:var(--danger)}
+
+  /* ===== 상태 메시지 ===== */
+  .status{font-size:.88rem;color:var(--muted);padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:12px;display:none}
+  .status.show{display:block}
+  .status.error{color:#a33;border-color:var(--danger-line);background:var(--danger-bg)}
+
+  /* ===== 달력 ===== */
+  .calendar{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .week-head,.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+  .week-head div{padding:10px 0;text-align:center;font-weight:700;font-size:.9rem;background:var(--soft);border-bottom:1px solid var(--line)}
+  .week-head .sun{color:var(--sun)}
+  .week-head .sat{color:var(--sat)}
+  .grid{margin-bottom:-1px}
+  .cell{
+    min-height:156px;padding:8px 10px 10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+    display:flex;flex-direction:column;gap:6px;min-width:0;position:relative;
+  }
+  .cell:nth-child(7n){border-right:none}
+  .cell.empty{background:var(--soft)}
+  .cell.weekend{background:#fcfcfd}
+  .cell.today{background:var(--today);box-shadow:inset 0 0 0 2px var(--today-line)}
+  .cell.has-danger::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--danger)}
+  .date-row{display:flex;align-items:center;justify-content:space-between;gap:4px}
+  .date{font-weight:700;font-size:.95rem;font-variant-numeric:tabular-nums}
+  .cell.sun .date{color:var(--sun)}
+  .cell.sat .date{color:var(--sat)}
+  .badge{font-size:.68rem;font-weight:700;padding:1px 6px;border-radius:999px;background:var(--accent);color:#fff}
+  .warn{font-size:.68rem;font-weight:700;padding:1px 6px;border-radius:999px;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-line)}
+  .menu{list-style:none;font-size:.86rem;display:flex;flex-direction:column;gap:2px}
+  .menu li{word-break:keep-all;overflow-wrap:anywhere;line-height:1.4}
+  .menu li .alg{color:var(--faint);font-size:.7rem;margin-left:3px;font-variant-numeric:tabular-nums}
+  .menu li.danger{color:var(--danger);font-weight:700}
+  .menu li.danger .alg{color:var(--danger);font-weight:600}
+  .kcal{margin-top:auto;font-size:.78rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:5px;font-variant-numeric:tabular-nums}
+  .no-meal{font-size:.8rem;color:var(--faint)}
+
+  @media (max-width:760px){
+    .wrap{padding:16px 16px 40px}
+    .ym{font-size:1.2rem;min-width:120px}
+    .btn{padding:6px 10px;font-size:.85rem}
+    .cell{min-height:110px;padding:5px 4px 6px;gap:4px}
+    .menu{font-size:.7rem}
+    .menu li .alg{display:none}
+    .kcal{font-size:.66rem}
+    .date{font-size:.82rem}
+    .badge,.warn{display:none}
+    .allergy-list{grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
+    .chip{padding:6px 8px;font-size:.85rem}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">급식 달력판<small>알레르기 성분 필터</small></div>
+    <nav class="nav" aria-label="월 이동">
+      <button class="btn" id="prevBtn" type="button" aria-label="이전달">◀ 이전달</button>
+      <div class="ym" id="ymLabel" aria-live="polite">----년 --월</div>
+      <button class="btn" id="nextBtn" type="button" aria-label="다음달">다음달 ▶</button>
+      <button class="btn ghost" id="todayBtn" type="button">오늘</button>
+    </nav>
+  </header>
+
+  <section class="panel" aria-labelledby="allergyTitle">
+    <div class="panel-head">
+      <h2 class="panel-title" id="allergyTitle">내 알레르기 선택<span class="count" id="selCount">선택 없음</span></h2>
+      <button class="btn ghost" id="clearBtn" type="button">전체 해제</button>
+    </div>
+    <div class="allergy-list" id="allergyList"></div>
+    <p class="legend">선택한 알레르기 성분이 들어간 메뉴는 <b>빨간색 굵은 글씨</b>로 표시됩니다.</p>
+  </section>
+
+  <div class="status" id="status" role="status"></div>
+
+  <section class="calendar" aria-label="월간 급식 달력">
+    <div class="week-head">
+      <div class="sun">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div class="sat">토</div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+</div>
+
+<script>
+(() => {
+  const ALLERGENS = [
+    [1,'난류'],[2,'우유'],[3,'메밀'],[4,'땅콩'],[5,'대두'],[6,'밀'],[7,'고등어'],
+    [8,'게'],[9,'새우'],[10,'돼지고기'],[11,'복숭아'],[12,'토마토'],[13,'아황산류'],
+    [14,'호두'],[15,'닭고기'],[16,'쇠고기'],[17,'오징어'],[18,'조개류'],[19,'잣']
+  ];
+  const STORE_KEY = 'meal-calendar-allergies';
+
+  const $ = id => document.getElementById(id);
+  const grid = $('grid'), ymLabel = $('ymLabel'), statusEl = $('status');
+
+  const now = new Date();
+  const state = {
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    meals: new Map(),      // 'YYYYMMDD' -> {menu:[{name,codes}], kcal}
+    loaded: new Set(),     // 'YYYYMM'
+    selected: new Set(),
+    reqId: 0
+  };
+
+  /* ---------- 유틸 ---------- */
+  const pad = n => String(n).padStart(2, '0');
+  const ymKey = (y, m) => `${y}${pad(m)}`;
+  const normDate = v => {
+    const s = String(v ?? '').replace(/[^0-9]/g, '');
+    return s.length >= 8 ? s.slice(0, 8) : null;
+  };
+  const toCodes = s => String(s).split(/[.,\s]+/).map(Number).filter(n => n >= 1 && n <= 19);
+
+  function parseItem(text) {
+    let name = text, codes = [];
+    let m = text.match(/\s*\(\s*([\d.,\s]+)\s*\)\s*$/);           // 프렌치토스트 (1.2.5.6.13.)
+    if (!m) m = text.match(/\s*((?:\d{1,2}\.)+\d{0,2})\s*$/);       // 프렌치토스트1.2.5.6.13.
+    if (m) { codes = toCodes(m[1]); name = text.slice(0, m.index).trim(); }
+    return { name: name || text, codes: [...new Set(codes)] };
+  }
+
+  function parseMenu(raw) {
+    const list = Array.isArray(raw) ? raw : String(raw ?? '').split(/<br\s*\/?>|\r?\n/i);
+    return list
+      .map(s => (typeof s === 'object' && s !== null ? (s.name ?? s.menu ?? '') : String(s)))
+      .map(s => s.replace(/<[^>]*>/g, '').trim())
+      .filter(Boolean)
+      .map(parseItem);
+  }
+
+  function formatKcal(v) {
+    if (v === undefined || v === null || v === '') return '';
+    const n = parseFloat(String(v).replace(/[^0-9.]/g, ''));
+    return isNaN(n) ? String(v) : `${Math.round(n * 10) / 10} Kcal`;
+  }
+
+  function extractRows(json) {
+    if (Array.isArray(json)) return json;
+    if (!json || typeof json !== 'object') return [];
+    if (Array.isArray(json.mealServiceDietInfo)) {
+      const r = json.mealServiceDietInfo.find(x => x && Array.isArray(x.row));
+      return r ? r.row : [];
+    }
+    for (const k of ['meals', 'data', 'items', 'result', 'rows']) {
+      if (Array.isArray(json[k])) return json[k];
+    }
+    return Object.entries(json)
+      .filter(([k]) => normDate(k))
+      .map(([k, v]) => (v && typeof v === 'object' && !Array.isArray(v)) ? { date: k, ...v } : { date: k, menu: v });
+  }
+
+  function ingest(json) {
+    extractRows(json).forEach(r => {
+      if (!r || typeof r !== 'object') return;
+      const date = normDate(r.date ?? r.MLSV_YMD ?? r.ymd ?? r.day);
+      if (!date) return;
+      const code = r.MMEAL_SC_CODE;
+      const type = r.MMEAL_SC_NM ?? r.type ?? r.meal_type;
+      if (code !== undefined && String(code) !== '2') return;
+      if (type && !/중식|점심|lunch/i.test(String(type))) return;
+      state.meals.set(date, {
+        menu: parseMenu(r.menu ?? r.menus ?? r.dishes ?? r.DDISH_NM ?? r.lunch ?? ''),
+        kcal: formatKcal(r.kcal ?? r.cal ?? r.calorie ?? r.calories ?? r.CAL_INFO)
+      });
+    });
+  }
+
+  function setStatus(msg, type) {
+    statusEl.textContent = msg || '';
+    statusEl.className = 'status' + (msg ? ' show' : '') + (type === 'error' ? ' error' : '');
+  }
+
+  /* ---------- 데이터 로드 ---------- */
+  async function load() {
+    const key = ymKey(state.year, state.month);
+    render();
+    if (state.loaded.has(key)) { afterLoadMessage(); return; }
+
+    const id = ++state.reqId;
+    setStatus('급식 정보를 불러오는 중입니다…');
+    try {
+      const res = await fetch(`/api/meals?year=${state.year}&month=${pad(state.month)}`, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (id !== state.reqId) return;
+      ingest(json);
+      state.loaded.add(key);
+      render();
+      afterLoadMessage();
+    } catch (err) {
+      if (id !== state.reqId) return;
+      setStatus(`급식 데이터를 불러오지 못했습니다. (${err.message}) 서버 상태를 확인해 주세요.`, 'error');
+    }
+  }
+
+  function afterLoadMessage() {
+    const prefix = ymKey(state.year, state.month);
+    const has = [...state.meals.keys()].some(k => k.startsWith(prefix));
+    setStatus(has ? '' : '이 달에 등록된 급식 정보가 없습니다.');
+  }
+
+  /* ---------- 렌더링 ---------- */
+  function render() {
+    const { year, month } = state;
+    ymLabel.textContent = `${year}년 ${month}월`;
+
+    const firstDow = new Date(year, month - 1, 1).getDay();
+    const lastDate = new Date(year, month, 0).getDate();
+    const total = Math.ceil((firstDow + lastDate) / 7) * 7;
+    const t = new Date();
+    const todayKey = `${t.getFullYear()}${pad(t.getMonth() + 1)}${pad(t.getDate())}`;
+
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < total; i++) {
+      const cell = document.createElement('div');
+      const day = i - firstDow + 1;
+      const dow = i % 7;
+      cell.className = 'cell';
+
+      if (day < 1 || day > lastDate) {
+        cell.classList.add('empty');
+        frag.appendChild(cell);
+        continue;
+      }
+
+      if (dow === 0) cell.classList.add('sun', 'weekend');
+      if (dow === 6) cell.classList.add('sat', 'weekend');
+
+      const key = `${year}${pad(month)}${pad(day)}`;
+      if (key === todayKey) cell.classList.add('today');
+
+      const row = document.createElement('div');
+      row.className = 'date-row';
+      const d = document.createElement('span');
+      d.className = 'date';
+      d.textContent = day;
+      row.appendChild(d);
+      if (key === todayKey) {
+        const b = document.createElement('span');
+        b.className = 'badge';
+        b.textContent = '오늘';
+        row.appendChild(b);
+      }
+      cell.appendChild(row);
+
+      const meal = state.meals.get(key);
+      if (meal && meal.menu.length) {
+        const ul = document.createElement('ul');
+        ul.className = 'menu';
+        meal.menu.forEach(item => {
+          const li = document.createElement('li');
+          li.dataset.codes = item.codes.join(',');
+          li.appendChild(document.createTextNode(item.name));
+          if (item.codes.length) {
+            const s = document.createElement('span');
+            s.className = 'alg';
+            s.textContent = `(${item.codes.join('.')}.)`;
+            li.appendChild(s);
+            li.title = '알레르기: ' + item.codes.map(c => `${c}.${ALLERGENS[c - 1][1]}`).join(', ');
+          }
+          ul.appendChild(li);
+        });
+        cell.appendChild(ul);
+        if (meal.kcal) {
+          const k = document.createElement('div');
+          k.className = 'kcal';
+          k.textContent = meal.kcal;
+          cell.appendChild(k);
+        }
+      } else if (dow !== 0 && dow !== 6 && state.loaded.has(ymKey(year, month))) {
+        const n = document.createElement('div');
+        n.className = 'no-meal';
+        n.textContent = '급식 없음';
+        cell.appendChild(n);
+      }
+      frag.appendChild(cell);
+    }
+    grid.replaceChildren(frag);
+    applyFilter();
+  }
+
+  /* ---------- 알레르기 필터 ---------- */
+  function buildAllergyList() {
+    const list = $('allergyList');
+    ALLERGENS.forEach(([no, name]) => {
+      const label = document.createElement('label');
+      label.className = 'chip';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = no;
+      input.checked = state.selected.has(no);
+      input.addEventListener('change', () => {
+        input.checked ? state.selected.add(no) : state.selected.delete(no);
+        saveSelection();
+        applyFilter();
+      });
+      const num = document.createElement('span');
+      num.className = 'no';
+      num.textContent = `${no}.`;
+      const txt = document.createElement('span');
+      txt.textContent = name;
+      label.append(input, num, txt);
+      list.appendChild(label);
+    });
+  }
+
+  function applyFilter() {
+    const sel = state.selected;
+
+    document.querySelectorAll('.chip').forEach(chip => {
+      const input = chip.querySelector('input');
+      chip.classList.toggle('on', input.checked);
+    });
+
+    const cnt = $('selCount');
+    cnt.textContent = sel.size ? `${sel.size}개 선택` : '선택 없음';
+    cnt.classList.toggle('on', sel.size > 0);
+
+    grid.querySelectorAll('.cell').forEach(cell => {
+      let hits = 0;
+      cell.querySelectorAll('.menu li').forEach(li => {
+        const codes = li.dataset.codes ? li.dataset.codes.split(',').map(Number) : [];
+        const danger = sel.size > 0 && codes.some(c => sel.has(c));
+        li.classList.toggle('danger', danger);
+        if (danger) hits++;
+      });
+      cell.classList.toggle('has-danger', hits > 0);
+
+      const row = cell.querySelector('.date-row');
+      if (!row) return;
+      let w = row.querySelector('.warn');
+      if (hits > 0) {
+        if (!w) { w = document.createElement('span'); w.className = 'warn'; row.appendChild(w); }
+        w.textContent = `주의 ${hits}`;
+      } else if (w) {
+        w.remove();
+      }
+    });
+  }
+
+  function saveSelection() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify([...state.selected])); } catch (e) {}
+  }
+  function loadSelection() {
+    try {
+      const arr = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+      if (Array.isArray(arr)) arr.map(Number).filter(n => n >= 1 && n <= 19).forEach(n => state.selected.add(n));
+    } catch (e) {}
+  }
+
+  /* ---------- 이벤트 ---------- */
+  function moveMonth(diff) {
+    const d = new Date(state.year, state.month - 1 + diff, 1);
+    state.year = d.getFullYear();
+    state.month = d.getMonth() + 1;
+    load();
+  }
+  $('prevBtn').addEventListener('click', () => moveMonth(-1));
+  $('nextBtn').addEventListener('click', () => moveMonth(1));
+  $('todayBtn').addEventListener('click', () => {
+    const t = new Date();
+    state.year = t.getFullYear();
+    state.month = t.getMonth() + 1;
+    load();
+  });
+  $('clearBtn').addEventListener('click', () => {
+    state.selected.clear();
+    document.querySelectorAll('.chip input').forEach(i => (i.checked = false));
+    saveSelection();
+    applyFilter();
+  });
+
+  /* ---------- 시작 ---------- */
+  loadSelection();
+  buildAllergyList();
+  load();
+})();
+</script>
+</body>
+</html>
